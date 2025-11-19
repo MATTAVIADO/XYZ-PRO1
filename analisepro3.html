@@ -107,6 +107,60 @@ th{color:var(--accent);text-transform:uppercase;font-size:12px}
   50% { opacity: 0.5; }
 }
 
+/* Book analysis styles */
+.book-pressure {
+  display: flex;
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.pressure-bar {
+  flex: 1;
+  background: #0b0f11;
+  border-radius: 8px;
+  padding: 12px;
+  text-align: center;
+}
+
+.pressure-value {
+  font-size: 18px;
+  font-weight: bold;
+  margin: 8px 0;
+}
+
+.pressure-buy { color: var(--good); }
+.pressure-sell { color: var(--bad); }
+
+.recommendation-box {
+  padding: 12px;
+  border-radius: 8px;
+  text-align: center;
+  font-weight: bold;
+  margin: 12px 0;
+}
+
+.recommendation-buy { background: rgba(0,255,153,0.1); color: var(--good); border: 1px solid var(--good); }
+.recommendation-sell { background: rgba(255,76,76,0.1); color: var(--bad); border: 1px solid var(--bad); }
+.recommendation-neutral { background: rgba(154,170,170,0.1); color: var(--muted); border: 1px solid var(--muted); }
+
+.book-levels {
+  margin-top: 12px;
+}
+
+.book-level {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  border-bottom: 1px solid #0b0f11;
+}
+
+.book-level:last-child {
+  border-bottom: none;
+}
+
+.book-buy { color: var(--good); }
+.book-sell { color: var(--bad); }
+
 @media (max-width: 768px) {
   body { padding: 8px; }
   h1 { font-size: 16px; }
@@ -116,6 +170,9 @@ th{color:var(--accent);text-transform:uppercase;font-size:12px}
     height: 60px;
     bottom: 15px;
     right: 15px;
+  }
+  .book-pressure {
+    flex-direction: column;
   }
 }
 </style>
@@ -196,6 +253,35 @@ th{color:var(--accent);text-transform:uppercase;font-size:12px}
             <tr><th>Recomendação</th><td id="recommend">—</td></tr>
           </tbody>
         </table>
+
+        <!-- Pressão de Compra/Venda -->
+        <div class="book-pressure">
+          <div class="pressure-bar">
+            <div class="small">Pressão Compra</div>
+            <div class="pressure-value pressure-buy" id="pressureBuyValue">$0</div>
+            <div class="small" id="pressureBuyPercent">0%</div>
+          </div>
+          <div class="pressure-bar">
+            <div class="small">Pressão Venda</div>
+            <div class="pressure-value pressure-sell" id="pressureSellValue">$0</div>
+            <div class="small" id="pressureSellPercent">0%</div>
+          </div>
+        </div>
+
+        <!-- Recomendação -->
+        <div class="recommendation-box recommendation-neutral" id="recommendationBox">
+          Aguardando análise...
+        </div>
+
+        <!-- Níveis do Book -->
+        <div class="book-levels">
+          <h4 style="color:var(--accent); margin-bottom:8px;">Principais Níveis do Book</h4>
+          <div id="bookLevelsList">
+            <div class="small" style="text-align:center; padding:20px; color:var(--muted);">
+              Os níveis do book serão exibidos aqui após a análise
+            </div>
+          </div>
+        </div>
       </div>
     </div>
     <div id="status" class="small" style="margin-top:8px">Pronto.</div>
@@ -217,8 +303,10 @@ let rec = null;
 let recognitionSupported = false;
 let isListening = false;
 let isSpeaking = false;
-let autoListen = false; // DESLIGADO - agora só manual pelo botão
+let autoListen = false;
 let refreshTimer = null;
+let autoAnalysisTimer = null;
+let isAutoAnalysis = false;
 
 // ===================== UTILs VISUAIS =====================
 function showToast(text, timeout=3000){
@@ -301,7 +389,6 @@ function initializeSpeechRecognition() {
             showVoiceIndicator(false);
             isListening = false;
             
-            // Processar comando e só depois reativar o botão
             processarComando(pergunta);
         };
 
@@ -318,7 +405,6 @@ function initializeSpeechRecognition() {
             } else if(event.error === 'no-speech') {
                 updateVoiceHint("Nenhuma fala detectada - toque para tentar novamente", 'error');
                 showToast("Não ouvi nada. Toque no microfone para tentar novamente.", 3000);
-                // NÃO reinicia automaticamente
             } else {
                 updateVoiceHint("Erro: " + event.error + " - toque para tentar novamente", 'error');
             }
@@ -328,7 +414,6 @@ function initializeSpeechRecognition() {
             isListening = false;
             showVoiceIndicator(false);
             
-            // Só atualiza o status se não estiver falando
             if (!isSpeaking) {
                 updateVoiceHint("Toque no microfone para falar", 'ready');
                 updateMicButton('ready');
@@ -349,7 +434,6 @@ async function tryStartRecognition(){
     }
     
     if (isListening) {
-        // Se já está ouvindo, para a escuta
         try { 
             rec.stop(); 
             isListening = false;
@@ -366,7 +450,6 @@ async function tryStartRecognition(){
     }
 
     try {
-        // Verificar permissão primeiro
         if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -377,7 +460,6 @@ async function tryStartRecognition(){
                 updateVoiceHint("Permissão necessária - toque para tentar", 'error');
             }
         } else {
-            // Fallback
             rec.start();
         }
     } catch (e) {
@@ -423,10 +505,8 @@ async function processarComando(pergunta) {
     pergunta = pergunta.toLowerCase();
     console.log("Processando comando:", pergunta);
 
-    // Desativa o botão enquanto processa
     updateMicButton('disabled');
 
-    // comandos diretos
     if (pergunta.includes("analisar") || pergunta.includes("book")) {
         analyzeBookNow();
         await falarResposta("Senhor Gustavo, iniciando análise do book.");
@@ -476,7 +556,6 @@ async function processarComando(pergunta) {
     await falarResposta("Senhor Gustavo, comando não reconhecido. Diga 'ajuda' para ver comandos.");
 }
 
-// fala + notificação visual - AGORA É ASSÍNCRONO
 function falarResposta(txt) {
     return new Promise((resolve) => {
         if (!window.speechSynthesis) {
@@ -523,7 +602,6 @@ function falarResposta(txt) {
     });
 }
 
-// analisa moeda específica (usa Binance)
 async function analisarMoedaEspecifica(nome) {
     const map = {
         "btc":"BTCUSDT","bitcoin":"BTCUSDT",
@@ -638,13 +716,200 @@ async function calcularMelhorShort() {
     }
 }
 
-// ===================== BOOK PANEL (simples) =====================
-function analyzeBookNow() {
-    document.getElementById('status').innerText = 'Analisando...';
-    setTimeout(()=>{
-        document.getElementById('status').innerText = 'Análise completa';
-        showToast("Análise do book finalizada.", 2500);
-    }, 1600);
+// ===================== BOOK ANALYSIS (CORRIGIDO) =====================
+async function analyzeBookNow() {
+    const pair = document.getElementById('pairInput').value.toUpperCase();
+    const statusEl = document.getElementById('status');
+    
+    statusEl.innerText = 'Analisando book de ofertas...';
+    document.getElementById('infoPair').innerText = pair;
+    
+    try {
+        // Buscar dados do book de ofertas
+        const bookUrl = `https://api.binance.com/api/v3/depth?symbol=${pair}&limit=20`;
+        const tickerUrl = `https://api.binance.com/api/v3/ticker/24hr?symbol=${pair}`;
+        
+        const [bookResponse, tickerResponse] = await Promise.all([
+            fetch(bookUrl),
+            fetch(tickerUrl)
+        ]);
+        
+        if (!bookResponse.ok || !tickerResponse.ok) {
+            throw new Error('Erro ao buscar dados da Binance');
+        }
+        
+        const bookData = await bookResponse.json();
+        const tickerData = await tickerResponse.json();
+        
+        // Calcular pressões de compra e venda
+        const buyPressure = calculateBuyPressure(bookData.bids);
+        const sellPressure = calculateSellPressure(bookData.asks);
+        const currentPrice = parseFloat(tickerData.lastPrice);
+        
+        // Atualizar interface
+        updateBookAnalysisUI(pair, currentPrice, buyPressure, sellPressure, bookData);
+        
+        statusEl.innerText = 'Análise completa - ' + new Date().toLocaleTimeString('pt-BR');
+        showToast(`Análise do ${pair} finalizada`, 2500);
+        
+    } catch (error) {
+        console.error('Erro na análise:', error);
+        statusEl.innerText = 'Erro na análise: ' + error.message;
+        showToast('Erro ao analisar o par ' + pair, 3000);
+    }
+}
+
+function calculateBuyPressure(bids) {
+    // Soma do volume de compra nos primeiros níveis
+    let totalPressure = 0;
+    let totalVolume = 0;
+    
+    bids.slice(0, 10).forEach(bid => {
+        const price = parseFloat(bid[0]);
+        const volume = parseFloat(bid[1]);
+        totalPressure += price * volume;
+        totalVolume += volume;
+    });
+    
+    return {
+        totalValue: totalPressure,
+        totalVolume: totalVolume,
+        avgPrice: totalPressure / totalVolume
+    };
+}
+
+function calculateSellPressure(asks) {
+    // Soma do volume de venda nos primeiros níveis
+    let totalPressure = 0;
+    let totalVolume = 0;
+    
+    asks.slice(0, 10).forEach(ask => {
+        const price = parseFloat(ask[0]);
+        const volume = parseFloat(ask[1]);
+        totalPressure += price * volume;
+        totalVolume += volume;
+    });
+    
+    return {
+        totalValue: totalPressure,
+        totalVolume: totalVolume,
+        avgPrice: totalPressure / totalVolume
+    };
+}
+
+function updateBookAnalysisUI(pair, currentPrice, buyPressure, sellPressure, bookData) {
+    // Informações básicas
+    document.getElementById('infoPrice').innerText = `$${currentPrice.toFixed(4)}`;
+    
+    // Pressões formatadas
+    const buyValue = buyPressure.totalValue.toFixed(2);
+    const sellValue = sellPressure.totalValue.toFixed(2);
+    
+    document.getElementById('pressBuy').innerText = `$${buyValue}`;
+    document.getElementById('pressSell').innerText = `$${sellValue}`;
+    
+    // Barras de pressão
+    document.getElementById('pressureBuyValue').innerText = `$${buyValue}`;
+    document.getElementById('pressureSellValue').innerText = `$${sellValue}`;
+    
+    const totalPressure = buyPressure.totalValue + sellPressure.totalValue;
+    const buyPercent = totalPressure > 0 ? ((buyPressure.totalValue / totalPressure) * 100).toFixed(1) : 0;
+    const sellPercent = totalPressure > 0 ? ((sellPressure.totalValue / totalPressure) * 100).toFixed(1) : 0;
+    
+    document.getElementById('pressureBuyPercent').innerText = `${buyPercent}%`;
+    document.getElementById('pressureSellPercent').innerText = `${sellPercent}%`;
+    
+    // Recomendação
+    let recommendation = '';
+    let recommendationClass = 'recommendation-neutral';
+    
+    const pressureRatio = buyPressure.totalValue / sellPressure.totalValue;
+    
+    if (pressureRatio > 1.5) {
+        recommendation = '📈 FORTE COMPRA - Pressão compradora dominante';
+        recommendationClass = 'recommendation-buy';
+    } else if (pressureRatio > 1.1) {
+        recommendation = '📈 COMPRA - Mais compradores';
+        recommendationClass = 'recommendation-buy';
+    } else if (pressureRatio < 0.7) {
+        recommendation = '📉 FORTE VENDA - Pressão vendedora dominante';
+        recommendationClass = 'recommendation-sell';
+    } else if (pressureRatio < 0.9) {
+        recommendation = '📉 VENDA - Mais vendedores';
+        recommendationClass = 'recommendation-sell';
+    } else {
+        recommendation = '⚖️ NEUTRO - Mercado equilibrado';
+        recommendationClass = 'recommendation-neutral';
+    }
+    
+    document.getElementById('recommend').innerText = recommendation;
+    const recommendationBox = document.getElementById('recommendationBox');
+    recommendationBox.innerText = recommendation;
+    recommendationBox.className = `recommendation-box ${recommendationClass}`;
+    
+    // Níveis do book
+    updateBookLevels(bookData.bids.slice(0, 5), bookData.asks.slice(0, 5), currentPrice);
+}
+
+function updateBookLevels(bids, asks, currentPrice) {
+    const levelsList = document.getElementById('bookLevelsList');
+    levelsList.innerHTML = '';
+    
+    // Adicionar níveis de venda (asks)
+    asks.reverse().forEach(ask => {
+        const price = parseFloat(ask[0]);
+        const volume = parseFloat(ask[1]);
+        const levelEl = document.createElement('div');
+        levelEl.className = 'book-level book-sell';
+        levelEl.innerHTML = `
+            <span>Venda: $${price.toFixed(4)}</span>
+            <span>${volume.toFixed(4)}</span>
+        `;
+        levelsList.appendChild(levelEl);
+    });
+    
+    // Preço atual
+    const currentEl = document.createElement('div');
+    currentEl.className = 'book-level';
+    currentEl.style.background = 'rgba(102, 252, 241, 0.1)';
+    currentEl.style.fontWeight = 'bold';
+    currentEl.innerHTML = `
+        <span>PREÇO ATUAL:</span>
+        <span>$${currentPrice.toFixed(4)}</span>
+    `;
+    levelsList.appendChild(currentEl);
+    
+    // Adicionar níveis de compra (bids)
+    bids.forEach(bid => {
+        const price = parseFloat(bid[0]);
+        const volume = parseFloat(bid[1]);
+        const levelEl = document.createElement('div');
+        levelEl.className = 'book-level book-buy';
+        levelEl.innerHTML = `
+            <span>Compra: $${price.toFixed(4)}</span>
+            <span>${volume.toFixed(4)}</span>
+        `;
+        levelsList.appendChild(levelEl);
+    });
+}
+
+function toggleAutoAnalysis() {
+    const autoBtn = document.getElementById('autoBtn');
+    isAutoAnalysis = !isAutoAnalysis;
+    
+    if (isAutoAnalysis) {
+        autoBtn.textContent = 'Auto ON';
+        autoBtn.style.background = 'var(--accent)';
+        autoBtn.style.color = '#021214';
+        autoAnalysisTimer = setInterval(analyzeBookNow, 10000); // 10 segundos
+        showToast('Análise automática ativada', 2000);
+    } else {
+        autoBtn.textContent = 'Auto OFF';
+        autoBtn.style.background = '';
+        autoBtn.style.color = '';
+        clearInterval(autoAnalysisTimer);
+        showToast('Análise automática desativada', 2000);
+    }
 }
 
 // ===================== UI e Eventos =====================
@@ -667,19 +932,29 @@ function showTab(name){
         document.getElementById('bookPanel').style.display='block';
         document.getElementById('tabBook').classList.add('active');
         document.getElementById('tabMain').classList.remove('active');
+        // Analisar automaticamente ao abrir a aba
+        setTimeout(analyzeBookNow, 500);
     }
 }
 
 // eventos
-document.getElementById('tabMain').addEventListener('click', ()=> showTab('main'));
-document.getElementById('tabBook').addEventListener('click', ()=> showTab('book'));
-document.getElementById('analyzeNowBtn').addEventListener('click', analyzeBookNow);
-document.getElementById('openBookBtn').addEventListener('click', ()=> showTab('book'));
-
-// ===================== INICIALIZAÇÃO =====================
 document.addEventListener('DOMContentLoaded', async function(){
     initializeVoiceButton();
     initializeSpeechRecognition();
+
+    // Configurar eventos
+    document.getElementById('tabMain').addEventListener('click', ()=> showTab('main'));
+    document.getElementById('tabBook').addEventListener('click', ()=> showTab('book'));
+    document.getElementById('analyzeNowBtn').addEventListener('click', analyzeBookNow);
+    document.getElementById('openBookBtn').addEventListener('click', ()=> showTab('book'));
+    document.getElementById('autoBtn').addEventListener('click', toggleAutoAnalysis);
+    
+    // Enter no input do par
+    document.getElementById('pairInput').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            analyzeBookNow();
+        }
+    });
 
     // atualiza tabela inicialmente e depois periodicamente
     await updateMainTable();
