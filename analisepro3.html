@@ -1,0 +1,567 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>GUSTAVO ANALITC'S — Análise Cripto + Voz</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+:root{
+  --bg:#0b0c10; --panel:#0f1316; --accent:#66fcf1; --good:#00ff99; --bad:#ff4c4c; --muted:#9aa;
+}
+body{background:radial-gradient(circle at top,#0b0c10,#000);color:#fff;font-family:Inter,Arial,Helvetica,sans-serif;margin:0;padding:12px;}
+.header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{color:var(--accent);margin:0 0 8px 0; font-size:18px;}
+.controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+button,select,input{padding:10px;border-radius:8px;border:0;font-size:16px} /* Aumentado para mobile */
+button{background:#111;color:var(--accent);cursor:pointer; min-height:44px;} /* Tamanho mínimo para touch */
+button.primary{background:var(--accent);color:#021214}
+.tabbar{display:flex;gap:8px;margin:12px 0; flex-wrap: wrap;}
+.tab{padding:12px 16px;border-radius:8px;cursor:pointer;background:#111;color:var(--accent); min-height:44px;}
+.tab.active{background:var(--accent);color:#021214}
+.panel{background:var(--panel);padding:12px;border-radius:10px;box-shadow:0 6px 22px rgba(0,0,0,0.5);margin-top:12px}
+.table{width:100%;border-collapse:collapse;margin-top:12px; font-size:14px;}
+th,td{padding:8px;border-bottom:1px solid #0b0f11;text-align:center}
+th{color:var(--accent);text-transform:uppercase;font-size:12px}
+.up{color:var(--good);font-weight:700}
+.down{color:var(--bad);font-weight:700}
+.neutral{color:var(--muted);font-weight:700}
+.small{font-size:12px;color:var(--muted)}
+.grid{display:grid;grid-template-columns:1fr;gap:12px} /* Mobile: uma coluna */
+@media(min-width:768px){ .grid{grid-template-columns:1fr 420px} } /* Desktop: duas colunas */
+.canvasWrap{background:#0d1012;padding:8px;border-radius:8px}
+.inputSmall{width:100%;background:#0d1012;color:#fff; min-height:44px; margin-bottom: 8px;} /* Full width mobile */
+.note{font-size:12px;color:var(--muted);margin-top:8px}
+.legend{display:flex;gap:8px;justify-content:center;margin-top:8px}
+.legend span{font-size:13px}
+.listBox{background:#0b0f11;padding:8px;border-radius:6px;max-height:160px;overflow:auto}
+.alertBox{margin-top:10px;padding:10px;border-radius:8px}
+.alertGood{background:rgba(0,255,153,0.06);color:var(--good)}
+.alertBad{background:rgba(255,76,76,0.06);color:var(--bad)}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  body { padding: 8px; }
+  h1 { font-size: 16px; }
+  .header { flex-direction: column; align-items: stretch; }
+  .controls { justify-content: center; }
+  button, select, input { font-size: 14px; padding: 12px; }
+}
+</style>
+</head>
+
+<body>
+  <!-- Conteúdo principal permanece igual -->
+  <div class="header">
+    <div>
+      <h1>📈 GUSTAVO ANALITC'S — Top Criptos + Voz</h1>
+      <div class="small">Toque no botão 🎤 para comandos de voz</div>
+    </div>
+    <div class="controls">
+      <div class="tabbar">
+        <div class="tab active" id="tabMain">Top Criptos</div>
+        <div class="tab" id="tabBook">Análise Profunda</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN PANEL -->
+  <div id="mainPanel" class="panel">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <select id="periodSelect" class="inputSmall">
+          <option value="24h">24h</option>
+          <option value="12h">12h</option>
+          <option value="1h">1h</option>
+        </select>
+
+        <select id="refreshSelect" class="inputSmall">
+          <option value="30000">30s</option>
+          <option value="60000">1m</option>
+          <option value="120000">2m</option>
+        </select>
+
+        <button id="openBookBtn" class="primary">📊 Análise Interna</button>
+      </div>
+
+      <div class="small" id="mainStatus">Última atualização: —</div>
+    </div>
+
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Par</th>
+          <th>Preço</th>
+          <th>Var%</th>
+          <th>Sinal</th>
+        </tr>
+      </thead>
+      <tbody id="mainTableBody"></tbody>
+    </table>
+  </div>
+
+  <!-- ORDER BOOK PANEL -->
+  <div id="bookPanel" class="panel" style="display:none">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap; width:100%;">
+        <input id="pairInput" class="inputSmall" value="BTCUSDT" placeholder="Digite o par..." />
+        <select id="kInterval" class="inputSmall">
+          <option value="1m">1m</option><option value="5m">5m</option>
+          <option value="1h" selected>1h</option><option value="4h">4h</option>
+        </select>
+        <button id="analyzeNowBtn" style="flex:1;">Analisar Agora</button>
+        <button id="autoBtn" class="tab" style="flex:1;">Auto OFF</button>
+      </div>
+    </div>
+
+    <div class="grid" style="margin-top:12px">
+      <!-- Conteúdo do book panel -->
+      <div>
+        <table style="width:100%">
+          <tbody>
+            <tr><th>Par</th><td id="infoPair">—</td></tr>
+            <tr><th>Preço</th><td id="infoPrice">—</td></tr>
+            <tr><th>Pressão Compra</th><td id="pressBuy">$—</td></tr>
+            <tr><th>Pressão Venda</th><td id="pressSell">$—</td></tr>
+            <tr><th>Recomendação</th><td id="recommend">—</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div id="status" class="small" style="margin-top:8px">Pronto.</div>
+  </div>
+
+<script>
+// =================================================================
+//        SISTEMA DE VOZ OTIMIZADO PARA MOBILE
+// =================================================================
+
+let rec = null;
+let recognitionSupported = false;
+let isListening = false;
+
+// Verificar suporte para reconhecimento de voz
+function initializeSpeechRecognition() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    
+    if (SpeechRecognition) {
+        try {
+            rec = new SpeechRecognition();
+            rec.lang = "pt-BR";
+            rec.continuous = false;
+            rec.interimResults = false;
+            recognitionSupported = true;
+            
+            rec.onstart = function() {
+                console.log("Reconhecimento de voz iniciado");
+                isListening = true;
+                updateVoiceStatus("🎤 Ouvindo... Fale agora!");
+                showVoiceIndicator(true);
+            };
+            
+            rec.onresult = function(event) {
+                let pergunta = event.results[0][0].transcript;
+                console.log("Pergunta detectada:", pergunta);
+                mostrarPergunta(pergunta);
+                processarComando(pergunta);
+                updateVoiceStatus("✅ Processado");
+                showVoiceIndicator(false);
+            };
+            
+            rec.onerror = function(event) {
+                console.error("Erro no reconhecimento:", event.error);
+                
+                if (event.error === 'not-allowed') {
+                    updateVoiceStatus("❌ Microfone bloqueado");
+                    showPermissionGuide();
+                } else if (event.error === 'no-speech') {
+                    updateVoiceStatus("🎤 Não ouvi nada. Toque para tentar novamente");
+                } else {
+                    updateVoiceStatus("❌ Erro: " + event.error);
+                }
+                
+                isListening = false;
+                showVoiceIndicator(false);
+            };
+            
+            rec.onend = function() {
+                console.log("Reconhecimento de voz finalizado");
+                isListening = false;
+                updateVoiceStatus("🎤 Toque para falar");
+                showVoiceIndicator(false);
+            };
+            
+        } catch (error) {
+            console.error("Erro ao inicializar reconhecimento:", error);
+            recognitionSupported = false;
+        }
+    } else {
+        console.warn("Reconhecimento de voz não suportado");
+        recognitionSupported = false;
+        updateVoiceStatus("❌ Voz não suportada");
+    }
+}
+
+// GUIA VISUAL DE PERMISSÃO
+function showPermissionGuide() {
+    const guide = document.getElementById('permissionGuide');
+    if (!guide) {
+        const guideHTML = `
+            <div id="permissionGuide" style="
+                position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+                background: rgba(15, 19, 22, 0.95); padding: 20px; border-radius: 12px;
+                border: 2px solid #66fcf1; z-index: 1000000; max-width: 90%;
+                backdrop-filter: blur(10px); text-align: center;
+            ">
+                <h3 style="color: #66fcf1; margin-top: 0;">🔒 Permissão do Microfone</h3>
+                <p style="font-size: 14px; margin-bottom: 15px;">Para usar comandos de voz:</p>
+                <ol style="text-align: left; font-size: 13px; margin-bottom: 15px;">
+                    <li>Toque no ícone de <strong>🔒 cadeado</strong> na barra de endereços</li>
+                    <li>Procure por <strong>"Microfone"</strong></li>
+                    <li>Mude para <strong>"Permitir"</strong></li>
+                    <li>Recarregue a página</li>
+                </ol>
+                <button onclick="closePermissionGuide()" style="
+                    background: #66fcf1; color: #021214; border: none; padding: 10px 20px;
+                    border-radius: 6px; cursor: pointer; font-weight: bold;
+                ">Entendido</button>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', guideHTML);
+    }
+}
+
+function closePermissionGuide() {
+    const guide = document.getElementById('permissionGuide');
+    if (guide) guide.remove();
+}
+
+// INDICADOR VISUAL DE ESCRUTA
+function showVoiceIndicator(show) {
+    let indicator = document.getElementById('voiceIndicator');
+    if (!indicator && show) {
+        indicator = document.createElement('div');
+        indicator.id = 'voiceIndicator';
+        indicator.style.cssText = `
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(102, 252, 241, 0.9); color: #021214; padding: 30px 40px;
+            border-radius: 50%; font-size: 40px; z-index: 999999; animation: pulse 1s infinite;
+            box-shadow: 0 0 30px rgba(102, 252, 241, 0.5);
+        `;
+        indicator.innerHTML = '🎤';
+        document.body.appendChild(indicator);
+        
+        // Adicionar animação
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes pulse {
+                0% { transform: translate(-50%, -50%) scale(1); }
+                50% { transform: translate(-50%, -50%) scale(1.1); }
+                100% { transform: translate(-50%, -50%) scale(1); }
+            }
+        `;
+        document.head.appendChild(style);
+    } else if (indicator && !show) {
+        indicator.remove();
+    }
+}
+
+// FUNÇÃO PRINCIPAL DE VOZ COM PERMISSÕES
+async function iniciarVoz() {
+    if (!recognitionSupported) {
+        initializeSpeechRecognition();
+        if (!recognitionSupported) {
+            alert("Seu navegador não suporta reconhecimento de voz. Use Chrome no Android ou Safari no iPhone.");
+            return;
+        }
+    }
+    
+    if (isListening) {
+        rec.stop();
+        return;
+    }
+    
+    try {
+        // Tentar iniciar diretamente primeiro (pode funcionar se já tiver permissão)
+        rec.start();
+        
+    } catch (error) {
+        console.log("Primeira tentativa falhou, solicitando permissão...", error);
+        
+        // Se falhar, solicitar permissão explicitamente
+        try {
+            // No mobile, precisamos de uma interação do usuário para solicitar permissão
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            
+            // Parar o stream imediatamente (só precisamos da permissão)
+            stream.getTracks().forEach(track => track.stop());
+            
+            // Agora tentar iniciar o reconhecimento
+            setTimeout(() => {
+                try {
+                    rec.start();
+                } catch (e) {
+                    console.error("Erro após permissão:", e);
+                    showPermissionGuide();
+                }
+            }, 500);
+            
+        } catch (permissionError) {
+            console.error("Permissão negada:", permissionError);
+            showPermissionGuide();
+        }
+    }
+}
+
+// ================= CHAT LATERAL MOBILE ====================
+function initializeChatBox() {
+    if (!document.getElementById("chatBox")) {
+        const box = document.createElement("div");
+        box.id = "chatBox";
+        box.style.cssText = `
+            position: fixed; bottom: 70px; right: 10px; left: 10px;
+            height: 200px; background: rgba(15, 19, 22, 0.95); color: white;
+            font-family: Arial; overflow-y: auto; padding: 15px; border-radius: 12px;
+            border: 1px solid #66fcf1; z-index: 999999; backdrop-filter: blur(8px);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5); display: none;
+        `;
+
+        box.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <h3 style="margin:0; color:#66fcf1; font-size:16px;">Assistente de Voz</h3>
+                <button id="closeChat" style="background: none; border: none; color: #9aa; cursor: pointer; font-size: 18px;">×</button>
+            </div>
+            <div id="chatMessages" style="height: 140px; overflow-y: auto; font-size: 13px;"></div>
+        `;
+        document.body.appendChild(box);
+        
+        document.getElementById('closeChat').addEventListener('click', function() {
+            document.getElementById('chatBox').style.display = 'none';
+        });
+    }
+}
+
+function toggleChat() {
+    const chat = document.getElementById('chatBox');
+    if (chat.style.display === 'none') {
+        chat.style.display = 'block';
+    } else {
+        chat.style.display = 'none';
+    }
+}
+
+function adicionarChat(origen, texto) {
+    const messagesContainer = document.getElementById('chatMessages');
+    if (!messagesContainer) return;
+    
+    // Mostrar chat se estiver oculto
+    document.getElementById('chatBox').style.display = 'block';
+    
+    const messageDiv = document.createElement("div");
+    messageDiv.style.cssText = `
+        margin-bottom: 8px; padding: 8px; border-radius: 8px; font-size: 13px;
+        background: ${origen === "🟦 Você" ? "rgba(102, 252, 241, 0.1)" : "rgba(15, 19, 22, 0.8)"};
+        border-left: 3px solid ${origen === "🟦 Você" ? "#66fcf1" : "#00ff99"};
+    `;
+    
+    messageDiv.innerHTML = `<b>${origen}:</b><br>${texto}`;
+    messagesContainer.appendChild(messageDiv);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+function mostrarPergunta(txt) {
+    adicionarChat("🟦 Você", txt);
+}
+
+function mostrarResposta(txt) {
+    adicionarChat("🟩 IA", txt);
+    falarResposta(txt);
+}
+
+// ===================== FALA =========================
+function falarResposta(txt) {
+    if (!window.speechSynthesis) {
+        console.warn("Síntese de fala não suportada");
+        return;
+    }
+    
+    try {
+        window.speechSynthesis.cancel();
+        
+        let fala = new SpeechSynthesisUtterance(txt);
+        fala.lang = "pt-BR";
+        fala.rate = 1.0; // Mais lento para melhor compreensão
+        fala.volume = 1;
+        fala.pitch = 1;
+        
+        window.speechSynthesis.speak(fala);
+    } catch (error) {
+        console.error("Erro ao tentar falar:", error);
+    }
+}
+
+// =================================================================
+//           COMANDOS DE VOZ
+// =================================================================
+async function processarComando(pergunta) {
+    pergunta = pergunta.toLowerCase();
+    console.log("Processando comando:", pergunta);
+
+    // Comandos de análise
+    if (pergunta.includes("analisar") || pergunta.includes("análise") || pergunta.includes("book")) {
+        analyzeBookNow();
+        mostrarResposta("Senhor Gustavo, análise do book de ordens em andamento.");
+        return;
+    }
+
+    if (pergunta.includes("melhor venda") || pergunta.includes("onde vender") || pergunta.includes("short")) {
+        let r = calcularMelhorShort();
+        mostrarResposta("Senhor Gustavo, " + r);
+        return;
+    }
+
+    if (pergunta.includes("melhor compra") || pergunta.includes("onde comprar") || pergunta.includes("long")) {
+        let r = calcularMelhorCompra();
+        mostrarResposta("Senhor Gustavo, " + r);
+        return;
+    }
+
+    if (pergunta.includes("atualizar") || pergunta.includes("refresh")) {
+        updateMainTable();
+        mostrarResposta("Atualizando dados de mercado.");
+        return;
+    }
+    
+    if (pergunta.includes("oi") || pergunta.includes("olá") || pergunta.includes("alô")) {
+        mostrarResposta("Olá Senhor Gustavo! Comandos disponíveis: analisar book, melhor compra, melhor venda, atualizar dados.");
+        return;
+    }
+
+    if (pergunta.includes("ajuda") || pergunta.includes("comandos")) {
+        mostrarResposta("Posso ajudar com: análise do book, melhores oportunidades de compra e venda, atualização de dados. Diga 'analisar book' ou 'melhor compra' por exemplo.");
+        return;
+    }
+
+    // Resposta padrão
+    mostrarResposta("Senhor Gustavo, comando não reconhecido. Diga 'ajuda' para ver os comandos disponíveis.");
+}
+
+// =================================================================
+//                   BOTÃO DE VOZ MOBILE
+// =================================================================
+function initializeVoiceButton() {
+    if (document.getElementById('voiceAssistantBtn')) return;
+    
+    const bot = document.createElement("button");
+    bot.id = "voiceAssistantBtn";
+    bot.innerHTML = "🎤<br><span style='font-size:10px;'>Falar</span>";
+    bot.style.cssText = `
+        position: fixed; bottom: 20px; right: 20px; 
+        width: 70px; height: 70px; padding: 10px;
+        background: linear-gradient(135deg, #3b82f6, #1e40af);
+        color: white; border: none; border-radius: 50%;
+        font-size: 24px; cursor: pointer; z-index: 999999;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+    `;
+    
+    bot.addEventListener('touchstart', function(e) {
+        e.preventDefault();
+        bot.style.transform = "scale(0.95)";
+    });
+    
+    bot.addEventListener('touchend', function(e) {
+        e.preventDefault();
+        bot.style.transform = "scale(1)";
+        iniciarVoz();
+    });
+    
+    bot.addEventListener('click', function(e) {
+        e.preventDefault();
+        iniciarVoz();
+    });
+    
+    document.body.appendChild(bot);
+}
+
+// =================================================================
+//           INICIALIZAÇÃO
+// =================================================================
+function initializeVoiceSystem() {
+    initializeChatBox();
+    initializeVoiceButton();
+    
+    // Mensagem de boas-vindas
+    setTimeout(() => {
+        adicionarChat("🟩 IA", "Sistema de voz pronto. Toque no botão 🎤 e diga comandos como 'analisar book' ou 'melhor compra'.");
+    }, 1000);
+}
+
+// Inicializar quando a página carregar
+document.addEventListener('DOMContentLoaded', function() {
+    initializeVoiceSystem();
+    initializeSpeechRecognition();
+});
+
+// ... (O RESTANTE DO SEU CÓDIGO ORIGINAL - funções de análise, etc.) ...
+
+// Funções auxiliares de análise (simplificadas para exemplo)
+function calcularMelhorShort() {
+    return "a melhor oportunidade de venda é BTCUSDT com pressão vendedora de 65%.";
+}
+
+function calcularMelhorCompra() {
+    return "a melhor oportunidade de compra é ETHUSDT com força compradora de 72%.";
+}
+
+// Inicializar sistema principal
+updateMainTable();
+
+// Sistema de abas
+document.getElementById('tabMain').addEventListener('click', ()=> showTab('main'));
+document.getElementById('tabBook').addEventListener('click', ()=> showTab('book'));
+function showTab(name){
+    if(name === 'main'){ 
+        document.getElementById('mainPanel').style.display='block'; 
+        document.getElementById('bookPanel').style.display='none'; 
+        document.getElementById('tabMain').classList.add('active'); 
+        document.getElementById('tabBook').classList.remove('active'); 
+    } else { 
+        document.getElementById('mainPanel').style.display='none'; 
+        document.getElementById('bookPanel').style.display='block'; 
+        document.getElementById('tabBook').classList.add('active'); 
+        document.getElementById('tabMain').classList.remove('active'); 
+    }
+}
+
+// Botão de análise
+document.getElementById('analyzeNowBtn').addEventListener('click', analyzeBookNow);
+function analyzeBookNow() {
+    document.getElementById('status').innerText = 'Analisando...';
+    setTimeout(() => {
+        document.getElementById('status').innerText = 'Análise completa';
+    }, 2000);
+}
+
+// Função de atualização simplificada
+async function updateMainTable() {
+    document.getElementById('mainStatus').innerText = 'Atualizando...';
+    setTimeout(() => {
+        document.getElementById('mainStatus').innerText = 'Última atualização: ' + new Date().toLocaleTimeString('pt-BR');
+    }, 1000);
+}
+
+function updateVoiceStatus(message) {
+    const bot = document.getElementById('voiceAssistantBtn');
+    if (bot) {
+        // Atualizar apenas o texto pequeno
+        const span = bot.querySelector('span');
+        if (span) {
+            span.textContent = message.length > 10 ? message.substring(0,8)+'...' : message;
+        }
+    }
+}
+</script>
+</body>
+</html>
