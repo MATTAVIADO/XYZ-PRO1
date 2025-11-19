@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>GUSTAVO ANALITC'S — Análise Cripto + Voz</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
 <style>
 :root{
   --bg:#0b0c10; --panel:#0f1316; --accent:#66fcf1; --good:#00ff99; --bad:#ff4c4c; --muted:#9aa;
@@ -14,8 +13,8 @@ body{background:radial-gradient(circle at top,#0b0c10,#000);color:#fff;font-fami
 .header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 h1{color:var(--accent);margin:0 0 8px 0; font-size:18px;}
 .controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-button,select,input{padding:10px;border-radius:8px;border:0;font-size:16px} /* Aumentado para mobile */
-button{background:#111;color:var(--accent);cursor:pointer; min-height:44px;} /* Tamanho mínimo para touch */
+button,select,input{padding:10px;border-radius:8px;border:0;font-size:16px}
+button{background:#111;color:var(--accent);cursor:pointer; min-height:44px;}
 button.primary{background:var(--accent);color:#021214}
 .tabbar{display:flex;gap:8px;margin:12px 0; flex-wrap: wrap;}
 .tab{padding:12px 16px;border-radius:8px;cursor:pointer;background:#111;color:var(--accent); min-height:44px;}
@@ -28,10 +27,10 @@ th{color:var(--accent);text-transform:uppercase;font-size:12px}
 .down{color:var(--bad);font-weight:700}
 .neutral{color:var(--muted);font-weight:700}
 .small{font-size:12px;color:var(--muted)}
-.grid{display:grid;grid-template-columns:1fr;gap:12px} /* Mobile: uma coluna */
-@media(min-width:768px){ .grid{grid-template-columns:1fr 420px} } /* Desktop: duas colunas */
+.grid{display:grid;grid-template-columns:1fr;gap:12px}
+@media(min-width:768px){ .grid{grid-template-columns:1fr 420px} }
 .canvasWrap{background:#0d1012;padding:8px;border-radius:8px}
-.inputSmall{width:100%;background:#0d1012;color:#fff; min-height:44px; margin-bottom: 8px;} /* Full width mobile */
+.inputSmall{width:100%;background:#0d1012;color:#fff; min-height:44px; margin-bottom: 8px;}
 .note{font-size:12px;color:var(--muted);margin-top:8px}
 .legend{display:flex;gap:8px;justify-content:center;margin-top:8px}
 .legend span{font-size:13px}
@@ -40,23 +39,53 @@ th{color:var(--accent);text-transform:uppercase;font-size:12px}
 .alertGood{background:rgba(0,255,153,0.06);color:var(--good)}
 .alertBad{background:rgba(255,76,76,0.06);color:var(--bad)}
 
-/* Mobile optimizations */
+/* mic button */
+#voiceAssistantBtn {
+  position: fixed; bottom: 20px; right: 20px;
+  width: 70px; height: 70px; padding: 10px;
+  background: linear-gradient(135deg, #3b82f6, #1e40af);
+  color: white; border: none; border-radius: 50%;
+  font-size: 28px; cursor: pointer; z-index: 999999;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+}
+
+/* toast */
+#voiceToast {
+  position: fixed; bottom: 100px; right: 20px;
+  background: rgba(15,19,22,0.95); color: #66fcf1;
+  padding: 10px 14px; border-radius: 8px; font-size: 13px;
+  border: 1px solid rgba(102,252,241,0.12); z-index: 999998;
+  display: none;
+}
+
+/* voice indicator center */
+#voiceIndicator {
+  position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.85);
+  background: rgba(102, 252, 241, 0.95); color: #021214; padding: 30px 36px;
+  border-radius: 50%; font-size: 40px; z-index: 999997; animation: pulse 1s infinite;
+  box-shadow: 0 0 30px rgba(102, 252, 241, 0.5);
+  display:none;
+}
+@keyframes pulse {
+  0% { transform: translate(-50%, -50%) scale(1); }
+  50% { transform: translate(-50%, -50%) scale(1.08); }
+  100% { transform: translate(-50%, -50%) scale(1); }
+}
+
 @media (max-width: 768px) {
   body { padding: 8px; }
   h1 { font-size: 16px; }
   .header { flex-direction: column; align-items: stretch; }
-  .controls { justify-content: center; }
-  button, select, input { font-size: 14px; padding: 12px; }
 }
 </style>
 </head>
 
 <body>
-  <!-- Conteúdo principal permanece igual -->
   <div class="header">
     <div>
       <h1>📈 GUSTAVO ANALITC'S — Top Criptos + Voz</h1>
-      <div class="small">Toque no botão 🎤 para comandos de voz</div>
+      <div class="small" id="voiceHint">Sistema de voz pronto — tentando ativar automaticamente.</div>
     </div>
     <div class="controls">
       <div class="tabbar">
@@ -66,7 +95,6 @@ th{color:var(--accent);text-transform:uppercase;font-size:12px}
     </div>
   </div>
 
-  <!-- MAIN PANEL -->
   <div id="mainPanel" class="panel">
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between">
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -101,7 +129,6 @@ th{color:var(--accent);text-transform:uppercase;font-size:12px}
     </table>
   </div>
 
-  <!-- ORDER BOOK PANEL -->
   <div id="bookPanel" class="panel" style="display:none">
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between">
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap; width:100%;">
@@ -116,7 +143,6 @@ th{color:var(--accent);text-transform:uppercase;font-size:12px}
     </div>
 
     <div class="grid" style="margin-top:12px">
-      <!-- Conteúdo do book panel -->
       <div>
         <table style="width:100%">
           <tbody>
@@ -132,436 +158,433 @@ th{color:var(--accent);text-transform:uppercase;font-size:12px}
     <div id="status" class="small" style="margin-top:8px">Pronto.</div>
   </div>
 
-<script>
-// =================================================================
-//        SISTEMA DE VOZ OTIMIZADO PARA MOBILE
-// =================================================================
+  <!-- mic button only -->
+  <button id="voiceAssistantBtn" title="Toque para ativar/pausar a escuta">🎤</button>
 
+  <!-- small toast -->
+  <div id="voiceToast"></div>
+
+  <!-- voice center indicator -->
+  <div id="voiceIndicator">🎤</div>
+
+<script>
+// ===================== CONFIGURAÇÕES =====================
+const monitoredSymbols = ["BTCUSDT","ETHUSDT","SOLUSDT","XRPUSDT","ADAUSDT","DOGEUSDT","BNBUSDT","MATICUSDT","AVAXUSDT","DOTUSDT","LINKUSDT","ARBUSDT"];
 let rec = null;
 let recognitionSupported = false;
 let isListening = false;
+let autoListen = true; // tenta iniciar automaticamente na carga
+let refreshTimer = null;
 
-// Verificar suporte para reconhecimento de voz
+// ===================== UTILs VISUAIS =====================
+function showToast(text, timeout=3000){
+    const t = document.getElementById('voiceToast');
+    t.innerText = text;
+    t.style.display = 'block';
+    setTimeout(()=> { t.style.display = 'none'; }, timeout);
+}
+function showVoiceIndicator(show){
+    const el = document.getElementById('voiceIndicator');
+    el.style.display = show ? 'block' : 'none';
+}
+function updateVoiceHint(txt){
+    const h = document.getElementById('voiceHint');
+    if(h) h.innerText = txt;
+}
+
+// ===================== SPEECH RECOGNITION =====================
 function initializeSpeechRecognition() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    
-    if (SpeechRecognition) {
-        try {
-            rec = new SpeechRecognition();
-            rec.lang = "pt-BR";
-            rec.continuous = false;
-            rec.interimResults = false;
-            recognitionSupported = true;
-            
-            rec.onstart = function() {
-                console.log("Reconhecimento de voz iniciado");
-                isListening = true;
-                updateVoiceStatus("🎤 Ouvindo... Fale agora!");
-                showVoiceIndicator(true);
-            };
-            
-            rec.onresult = function(event) {
-                let pergunta = event.results[0][0].transcript;
-                console.log("Pergunta detectada:", pergunta);
-                mostrarPergunta(pergunta);
-                processarComando(pergunta);
-                updateVoiceStatus("✅ Processado");
-                showVoiceIndicator(false);
-            };
-            
-            rec.onerror = function(event) {
-                console.error("Erro no reconhecimento:", event.error);
-                
-                if (event.error === 'not-allowed') {
-                    updateVoiceStatus("❌ Microfone bloqueado");
-                    showPermissionGuide();
-                } else if (event.error === 'no-speech') {
-                    updateVoiceStatus("🎤 Não ouvi nada. Toque para tentar novamente");
-                } else {
-                    updateVoiceStatus("❌ Erro: " + event.error);
-                }
-                
-                isListening = false;
-                showVoiceIndicator(false);
-            };
-            
-            rec.onend = function() {
-                console.log("Reconhecimento de voz finalizado");
-                isListening = false;
-                updateVoiceStatus("🎤 Toque para falar");
-                showVoiceIndicator(false);
-            };
-            
-        } catch (error) {
-            console.error("Erro ao inicializar reconhecimento:", error);
-            recognitionSupported = false;
-        }
-    } else {
-        console.warn("Reconhecimento de voz não suportado");
+    if (!SpeechRecognition) {
         recognitionSupported = false;
-        updateVoiceStatus("❌ Voz não suportada");
-    }
-}
-
-// GUIA VISUAL DE PERMISSÃO
-function showPermissionGuide() {
-    const guide = document.getElementById('permissionGuide');
-    if (!guide) {
-        const guideHTML = `
-            <div id="permissionGuide" style="
-                position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-                background: rgba(15, 19, 22, 0.95); padding: 20px; border-radius: 12px;
-                border: 2px solid #66fcf1; z-index: 1000000; max-width: 90%;
-                backdrop-filter: blur(10px); text-align: center;
-            ">
-                <h3 style="color: #66fcf1; margin-top: 0;">🔒 Permissão do Microfone</h3>
-                <p style="font-size: 14px; margin-bottom: 15px;">Para usar comandos de voz:</p>
-                <ol style="text-align: left; font-size: 13px; margin-bottom: 15px;">
-                    <li>Toque no ícone de <strong>🔒 cadeado</strong> na barra de endereços</li>
-                    <li>Procure por <strong>"Microfone"</strong></li>
-                    <li>Mude para <strong>"Permitir"</strong></li>
-                    <li>Recarregue a página</li>
-                </ol>
-                <button onclick="closePermissionGuide()" style="
-                    background: #66fcf1; color: #021214; border: none; padding: 10px 20px;
-                    border-radius: 6px; cursor: pointer; font-weight: bold;
-                ">Entendido</button>
-            </div>
-        `;
-        document.body.insertAdjacentHTML('beforeend', guideHTML);
-    }
-}
-
-function closePermissionGuide() {
-    const guide = document.getElementById('permissionGuide');
-    if (guide) guide.remove();
-}
-
-// INDICADOR VISUAL DE ESCRUTA
-function showVoiceIndicator(show) {
-    let indicator = document.getElementById('voiceIndicator');
-    if (!indicator && show) {
-        indicator = document.createElement('div');
-        indicator.id = 'voiceIndicator';
-        indicator.style.cssText = `
-            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: rgba(102, 252, 241, 0.9); color: #021214; padding: 30px 40px;
-            border-radius: 50%; font-size: 40px; z-index: 999999; animation: pulse 1s infinite;
-            box-shadow: 0 0 30px rgba(102, 252, 241, 0.5);
-        `;
-        indicator.innerHTML = '🎤';
-        document.body.appendChild(indicator);
-        
-        // Adicionar animação
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes pulse {
-                0% { transform: translate(-50%, -50%) scale(1); }
-                50% { transform: translate(-50%, -50%) scale(1.1); }
-                100% { transform: translate(-50%, -50%) scale(1); }
-            }
-        `;
-        document.head.appendChild(style);
-    } else if (indicator && !show) {
-        indicator.remove();
-    }
-}
-
-// FUNÇÃO PRINCIPAL DE VOZ COM PERMISSÕES
-async function iniciarVoz() {
-    if (!recognitionSupported) {
-        initializeSpeechRecognition();
-        if (!recognitionSupported) {
-            alert("Seu navegador não suporta reconhecimento de voz. Use Chrome no Android ou Safari no iPhone.");
-            return;
-        }
-    }
-    
-    if (isListening) {
-        rec.stop();
+        updateVoiceHint("Reconhecimento de voz não suportado neste navegador.");
         return;
     }
-    
     try {
-        // Tentar iniciar diretamente primeiro (pode funcionar se já tiver permissão)
-        rec.start();
-        
-    } catch (error) {
-        console.log("Primeira tentativa falhou, solicitando permissão...", error);
-        
-        // Se falhar, solicitar permissão explicitamente
-        try {
-            // No mobile, precisamos de uma interação do usuário para solicitar permissão
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            
-            // Parar o stream imediatamente (só precisamos da permissão)
-            stream.getTracks().forEach(track => track.stop());
-            
-            // Agora tentar iniciar o reconhecimento
-            setTimeout(() => {
-                try {
-                    rec.start();
-                } catch (e) {
-                    console.error("Erro após permissão:", e);
+        rec = new SpeechRecognition();
+        rec.lang = "pt-BR";
+        rec.continuous = false; // one-shot per start
+        rec.interimResults = false;
+        recognitionSupported = true;
+
+        rec.onstart = function() {
+            isListening = true;
+            updateVoiceStatus("Ouvindo...");
+            showVoiceIndicator(true);
+            showToast("Ouvindo... fale agora", 2000);
+        };
+
+        rec.onresult = function(event) {
+            const pergunta = event.results[0][0].transcript;
+            console.log("Detectado:", pergunta);
+            updateVoiceStatus("Processando...");
+            showVoiceIndicator(false);
+            isListening = false;
+            processarComando(pergunta);
+        };
+
+        rec.onerror = function(event) {
+            console.error("Erro no reconhecimento:", event);
+            isListening = false;
+            showVoiceIndicator(false);
+            if (event.error === 'not-allowed' || event.error === 'permission-denied') {
+                updateVoiceStatus("Microfone bloqueado");
+                showToast("Permissão do microfone negada. Toque no cadeado na barra e permita.", 6000);
+                showPermissionGuide();
+            } else if(event.error === 'no-speech') {
+                updateVoiceStatus("Nenhuma fala detectada");
+                showToast("Não ouvi nada. Tentando novamente em 1s...",1500);
+                // tentar novamente automaticamente
+                setTimeout(()=> tryStartRecognition(true), 1000);
+            } else {
+                updateVoiceStatus("Erro: " + event.error);
+            }
+        };
+
+        rec.onend = function() {
+            isListening = false;
+            showVoiceIndicator(false);
+            updateVoiceStatus("Clique para falar");
+            // se autoListen estiver ativo, re-ligar automaticamente (cuidado com loops)
+            if (autoListen) {
+                // delay curto para evitar loop imediato
+                setTimeout(()=> tryStartRecognition(false), 700);
+            }
+        };
+
+    } catch (e) {
+        console.error("Falha init recognition:", e);
+        recognitionSupported = false;
+    }
+}
+
+function updateVoiceStatus(message){
+    const btn = document.getElementById('voiceAssistantBtn');
+    if (!btn) return;
+    btn.title = message;
+}
+
+async function tryStartRecognition(userGestureRequired=false){
+    if (!recognitionSupported) return;
+    if (isListening) return;
+    try {
+        // Alguns navegadores exigem getUserMedia para liberar reconhecimento
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            // se já temos permissão, start direto; caso contrário, solicitar
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                stream.getTracks().forEach(t=>t.stop());
+                // com permissão, iniciar rec
+                rec.start();
+            } catch (permErr) {
+                // permissão negada ou user gesture required
+                if (!userGestureRequired) {
+                    // tentar iniciar rec sem pedir explicitamente (pode falhar)
+                    try { rec.start(); } catch(e){ showPermissionGuide(); }
+                } else {
                     showPermissionGuide();
                 }
-            }, 500);
-            
-        } catch (permissionError) {
-            console.error("Permissão negada:", permissionError);
-            showPermissionGuide();
+            }
+        } else {
+            // fallback: tentar rec.start, pode falhar
+            try { rec.start(); } catch(e){ console.warn("Start failed", e); }
         }
+    } catch (e) {
+        console.error("Erro ao iniciar reconhecimento:", e);
+        showPermissionGuide();
     }
 }
 
-// ================= CHAT LATERAL MOBILE ====================
-function initializeChatBox() {
-    if (!document.getElementById("chatBox")) {
-        const box = document.createElement("div");
-        box.id = "chatBox";
-        box.style.cssText = `
-            position: fixed; bottom: 70px; right: 10px; left: 10px;
-            height: 200px; background: rgba(15, 19, 22, 0.95); color: white;
-            font-family: Arial; overflow-y: auto; padding: 15px; border-radius: 12px;
-            border: 1px solid #66fcf1; z-index: 999999; backdrop-filter: blur(8px);
-            box-shadow: 0 4px 20px rgba(0,0,0,0.5); display: none;
-        `;
-
-        box.innerHTML = `
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                <h3 style="margin:0; color:#66fcf1; font-size:16px;">Assistente de Voz</h3>
-                <button id="closeChat" style="background: none; border: none; color: #9aa; cursor: pointer; font-size: 18px;">×</button>
-            </div>
-            <div id="chatMessages" style="height: 140px; overflow-y: auto; font-size: 13px;"></div>
-        `;
-        document.body.appendChild(box);
-        
-        document.getElementById('closeChat').addEventListener('click', function() {
-            document.getElementById('chatBox').style.display = 'none';
-        });
-    }
-}
-
-function toggleChat() {
-    const chat = document.getElementById('chatBox');
-    if (chat.style.display === 'none') {
-        chat.style.display = 'block';
-    } else {
-        chat.style.display = 'none';
-    }
-}
-
-function adicionarChat(origen, texto) {
-    const messagesContainer = document.getElementById('chatMessages');
-    if (!messagesContainer) return;
-    
-    // Mostrar chat se estiver oculto
-    document.getElementById('chatBox').style.display = 'block';
-    
-    const messageDiv = document.createElement("div");
-    messageDiv.style.cssText = `
-        margin-bottom: 8px; padding: 8px; border-radius: 8px; font-size: 13px;
-        background: ${origen === "🟦 Você" ? "rgba(102, 252, 241, 0.1)" : "rgba(15, 19, 22, 0.8)"};
-        border-left: 3px solid ${origen === "🟦 Você" ? "#66fcf1" : "#00ff99"};
-    `;
-    
-    messageDiv.innerHTML = `<b>${origen}:</b><br>${texto}`;
-    messagesContainer.appendChild(messageDiv);
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
-}
-
-function mostrarPergunta(txt) {
-    adicionarChat("🟦 Você", txt);
-}
-
-function mostrarResposta(txt) {
-    adicionarChat("🟩 IA", txt);
-    falarResposta(txt);
-}
-
-// ===================== FALA =========================
-function falarResposta(txt) {
-    if (!window.speechSynthesis) {
-        console.warn("Síntese de fala não suportada");
+function startStopManual(){
+    if (!recognitionSupported) {
+        showToast("Voz não suportada aqui.");
         return;
     }
-    
-    try {
-        window.speechSynthesis.cancel();
-        
-        let fala = new SpeechSynthesisUtterance(txt);
-        fala.lang = "pt-BR";
-        fala.rate = 1.0; // Mais lento para melhor compreensão
-        fala.volume = 1;
-        fala.pitch = 1;
-        
-        window.speechSynthesis.speak(fala);
-    } catch (error) {
-        console.error("Erro ao tentar falar:", error);
+    if (isListening) {
+        try { rec.stop(); } catch(e){}
+    } else {
+        tryStartRecognition(true);
     }
 }
 
-// =================================================================
-//           COMANDOS DE VOZ
-// =================================================================
+// ===================== PERMISSION GUIDE =====================
+function showPermissionGuide() {
+    const existing = document.getElementById('permissionGuide');
+    if (existing) return;
+    const guideHTML = document.createElement('div');
+    guideHTML.id = 'permissionGuide';
+    guideHTML.style.cssText = `
+        position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        background: rgba(15,19,22,0.98); padding: 18px; border-radius: 10px;
+        border: 2px solid #66fcf1; z-index: 1000000; width:90%; max-width:420px;
+        color: white; text-align:left;
+    `;
+    guideHTML.innerHTML = `
+        <h3 style="color:#66fcf1;margin:0 0 8px 0">🔒 Permissão de Microfone</h3>
+        <p style="margin:0 0 8px 0">Para usar o assistente de voz faça isso:</p>
+        <ol style="margin:0 0 12px 18px; color:#cfe;">
+            <li>Toque no cadeado (🔒) na barra de endereços do navegador</li>
+            <li>Encontre "Microfone" nas permissões</li>
+            <li>Defina como <strong>Permitir</strong></li>
+            <li>Recarregue a página</li>
+        </ol>
+        <div style="text-align:right"><button id="closePermBtn" style="background:#66fcf1;color:#021214;border:none;padding:8px 12px;border-radius:6px;cursor:pointer">Entendi</button></div>
+    `;
+    document.body.appendChild(guideHTML);
+    document.getElementById('closePermBtn').addEventListener('click', ()=> guideHTML.remove());
+}
+
+// ===================== COMANDOS E ANÁLISES =====================
+
 async function processarComando(pergunta) {
     pergunta = pergunta.toLowerCase();
     console.log("Processando comando:", pergunta);
 
-    // Comandos de análise
-    if (pergunta.includes("analisar") || pergunta.includes("análise") || pergunta.includes("book")) {
+    // comandos diretos
+    if (pergunta.includes("analisar") || pergunta.includes("book")) {
         analyzeBookNow();
-        mostrarResposta("Senhor Gustavo, análise do book de ordens em andamento.");
+        falarResposta("Senhor Gustavo, iniciando análise do book.");
         return;
     }
 
     if (pergunta.includes("melhor venda") || pergunta.includes("onde vender") || pergunta.includes("short")) {
-        let r = calcularMelhorShort();
-        mostrarResposta("Senhor Gustavo, " + r);
+        const r = await calcularMelhorShort();
+        falarResposta("Senhor Gustavo, " + r);
         return;
     }
 
     if (pergunta.includes("melhor compra") || pergunta.includes("onde comprar") || pergunta.includes("long")) {
-        let r = calcularMelhorCompra();
-        mostrarResposta("Senhor Gustavo, " + r);
+        const r = await calcularMelhorCompra();
+        falarResposta("Senhor Gustavo, " + r);
         return;
     }
 
-    if (pergunta.includes("atualizar") || pergunta.includes("refresh")) {
-        updateMainTable();
-        mostrarResposta("Atualizando dados de mercado.");
+    if (pergunta.includes("atualizar") || pergunta.includes("refresh") || pergunta.includes("atualiza")) {
+        await updateMainTable();
+        falarResposta("Atualizando dados de mercado.");
         return;
     }
-    
+
     if (pergunta.includes("oi") || pergunta.includes("olá") || pergunta.includes("alô")) {
-        mostrarResposta("Olá Senhor Gustavo! Comandos disponíveis: analisar book, melhor compra, melhor venda, atualizar dados.");
+        falarResposta("Olá Senhor Gustavo! Comandos disponíveis: melhor compra, melhor venda, analisar book, atualizar dados, ou pergunte por uma moeda como Bitcoin ou Solana.");
         return;
     }
 
     if (pergunta.includes("ajuda") || pergunta.includes("comandos")) {
-        mostrarResposta("Posso ajudar com: análise do book, melhores oportunidades de compra e venda, atualização de dados. Diga 'analisar book' ou 'melhor compra' por exemplo.");
+        falarResposta("Senhor Gustavo, posso analisar o book, indicar melhor compra ou venda, ou analisar moedas específicas. Diga, por exemplo, 'como está o bitcoin' ou 'melhor compra'.");
         return;
     }
 
-    // Resposta padrão
-    mostrarResposta("Senhor Gustavo, comando não reconhecido. Diga 'ajuda' para ver os comandos disponíveis.");
+    // detectar moedas
+    const moedas = ["bitcoin","btc","ethereum","eth","solana","sol","xrp","ada","doge","bnb","matic","avalanche","avax","dot","link","arb","arbis"];
+    let moedaDetectada = null;
+    for (let m of moedas) {
+        if (pergunta.includes(m)) { moedaDetectada = m; break; }
+    }
+    if (moedaDetectada) {
+        analisarMoedaEspecifica(moedaDetectada);
+        return;
+    }
+
+    // padrão
+    falarResposta("Senhor Gustavo, comando não reconhecido. Diga 'ajuda' para ver comandos.");
 }
 
-// =================================================================
-//                   BOTÃO DE VOZ MOBILE
-// =================================================================
-function initializeVoiceButton() {
-    if (document.getElementById('voiceAssistantBtn')) return;
-    
-    const bot = document.createElement("button");
-    bot.id = "voiceAssistantBtn";
-    bot.innerHTML = "🎤<br><span style='font-size:10px;'>Falar</span>";
-    bot.style.cssText = `
-        position: fixed; bottom: 20px; right: 20px; 
-        width: 70px; height: 70px; padding: 10px;
-        background: linear-gradient(135deg, #3b82f6, #1e40af);
-        color: white; border: none; border-radius: 50%;
-        font-size: 24px; cursor: pointer; z-index: 999999;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-        display: flex; flex-direction: column; align-items: center; justify-content: center;
-    `;
-    
-    bot.addEventListener('touchstart', function(e) {
-        e.preventDefault();
-        bot.style.transform = "scale(0.95)";
-    });
-    
-    bot.addEventListener('touchend', function(e) {
-        e.preventDefault();
-        bot.style.transform = "scale(1)";
-        iniciarVoz();
-    });
-    
-    bot.addEventListener('click', function(e) {
-        e.preventDefault();
-        iniciarVoz();
-    });
-    
-    document.body.appendChild(bot);
+// fala + notificação visual
+function falarResposta(txt){
+    // fala
+    if (window.speechSynthesis) {
+        try {
+            window.speechSynthesis.cancel();
+            const utter = new SpeechSynthesisUtterance(txt);
+            utter.lang = "pt-BR";
+            utter.rate = 1.0;
+            utter.pitch = 1.0;
+            window.speechSynthesis.speak(utter);
+        } catch(e){ console.warn("Erro síntese:", e); }
+    }
+    // toast
+    showToast(txt, 4500);
 }
 
-// =================================================================
-//           INICIALIZAÇÃO
-// =================================================================
-function initializeVoiceSystem() {
-    initializeChatBox();
-    initializeVoiceButton();
-    
-    // Mensagem de boas-vindas
-    setTimeout(() => {
-        adicionarChat("🟩 IA", "Sistema de voz pronto. Toque no botão 🎤 e diga comandos como 'analisar book' ou 'melhor compra'.");
-    }, 1000);
-}
+// analisa moeda específica (usa Binance)
+async function analisarMoedaEspecifica(nome) {
+    const map = {
+        "btc":"BTCUSDT","bitcoin":"BTCUSDT",
+        "eth":"ETHUSDT","ethereum":"ETHUSDT",
+        "sol":"SOLUSDT","solana":"SOLUSDT",
+        "xrp":"XRPUSDT",
+        "ada":"ADAUSDT",
+        "doge":"DOGEUSDT",
+        "bnb":"BNBUSDT",
+        "matic":"MATICUSDT",
+        "avax":"AVAXUSDT","avalanche":"AVAXUSDT",
+        "dot":"DOTUSDT",
+        "link":"LINKUSDT",
+        "arb":"ARBUSDT","arbis":"ARBUSDT"
+    };
+    const par = map[nome];
+    if (!par) { falarResposta("Senhor Gustavo, ainda não tenho dados para essa moeda."); return; }
 
-// Inicializar quando a página carregar
-document.addEventListener('DOMContentLoaded', function() {
-    initializeVoiceSystem();
-    initializeSpeechRecognition();
-});
+    falarResposta("Senhor Gustavo, analisando " + nome.toUpperCase() + "...");
+    try {
+        const url = `https://api.binance.com/api/v3/ticker/24hr?symbol=${par}`;
+        const r = await fetch(url);
+        const d = await r.json();
+        if (!d || !d.lastPrice) { falarResposta("Senhor Gustavo, falha ao obter dados de " + par); return; }
 
-// ... (O RESTANTE DO SEU CÓDIGO ORIGINAL - funções de análise, etc.) ...
+        const preco = Number(d.lastPrice).toFixed(4);
+        const variacao = Number(d.priceChangePercent).toFixed(2);
+        let sinal = "neutro";
+        if (variacao > 2) sinal = "tendência forte de alta";
+        else if (variacao > 0.5) sinal = "tendência de alta";
+        else if (variacao < -2) sinal = "tendência de forte queda";
+        else if (variacao < -0.5) sinal = "tendência de queda";
 
-// Funções auxiliares de análise (simplificadas para exemplo)
-function calcularMelhorShort() {
-    return "a melhor oportunidade de venda é BTCUSDT com pressão vendedora de 65%.";
-}
-
-function calcularMelhorCompra() {
-    return "a melhor oportunidade de compra é ETHUSDT com força compradora de 72%.";
-}
-
-// Inicializar sistema principal
-updateMainTable();
-
-// Sistema de abas
-document.getElementById('tabMain').addEventListener('click', ()=> showTab('main'));
-document.getElementById('tabBook').addEventListener('click', ()=> showTab('book'));
-function showTab(name){
-    if(name === 'main'){ 
-        document.getElementById('mainPanel').style.display='block'; 
-        document.getElementById('bookPanel').style.display='none'; 
-        document.getElementById('tabMain').classList.add('active'); 
-        document.getElementById('tabBook').classList.remove('active'); 
-    } else { 
-        document.getElementById('mainPanel').style.display='none'; 
-        document.getElementById('bookPanel').style.display='block'; 
-        document.getElementById('tabBook').classList.add('active'); 
-        document.getElementById('tabMain').classList.remove('active'); 
+        const texto = `Senhor Gustavo, ${par}: preço $${preco}, var ${variacao}%. Interpretação: ${sinal}.`;
+        falarResposta(texto);
+    } catch (e) {
+        console.error(e);
+        falarResposta("Senhor Gustavo, erro ao analisar " + nome);
     }
 }
 
-// Botão de análise
-document.getElementById('analyzeNowBtn').addEventListener('click', analyzeBookNow);
+// ===================== FUNÇÕES DE DADOS (Tabela principal) =====================
+
+async function updateMainTable() {
+    const body = document.getElementById('mainTableBody');
+    body.innerHTML = '';
+    document.getElementById('mainStatus').innerText = 'Atualizando...';
+
+    try {
+        // buscar todos os símbolos monitorados em paralelo
+        const promises = monitoredSymbols.map(s => fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${s}`).then(r => r.json()));
+        const results = await Promise.all(promises);
+
+        // popular tabela
+        results.forEach(item => {
+            const tr = document.createElement('tr');
+            const price = item.lastPrice ? Number(item.lastPrice) : 0;
+            const change = item.priceChangePercent ? Number(item.priceChangePercent) : 0;
+            const sinalClass = change > 0 ? 'up' : change < 0 ? 'down' : 'neutral';
+            tr.innerHTML = `
+                <td>${item.symbol}</td>
+                <td>${price.toFixed(price>1?2:4)}</td>
+                <td class="${sinalClass}">${change.toFixed(2)}%</td>
+                <td>${change > 1 ? 'Comprar' : change < -1 ? 'Vender' : 'Neutro'}</td>
+            `;
+            body.appendChild(tr);
+        });
+
+        document.getElementById('mainStatus').innerText = 'Última atualização: ' + new Date().toLocaleTimeString('pt-BR');
+    } catch (e) {
+        console.error("Erro updateMainTable:", e);
+        document.getElementById('mainStatus').innerText = 'Erro ao atualizar';
+    }
+}
+
+// melhor compra = maior var positiva; melhor venda = maior var negativa
+async function calcularMelhorCompra() {
+    try {
+        const promises = monitoredSymbols.map(s => fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${s}`).then(r => r.json()));
+        const results = await Promise.all(promises);
+        // filtrar válidos
+        const sorted = results.filter(r => r && r.priceChangePercent !== undefined)
+                              .sort((a,b) => Number(b.priceChangePercent) - Number(a.priceChangePercent));
+        const top = sorted[0];
+        if (!top) return "não encontrei oportunidades agora.";
+        return `${top.symbol} com variação ${Number(top.priceChangePercent).toFixed(2)}%`;
+    } catch (e) {
+        console.error(e);
+        return "erro ao calcular melhor compra.";
+    }
+}
+
+async function calcularMelhorShort() {
+    try {
+        const promises = monitoredSymbols.map(s => fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${s}`).then(r => r.json()));
+        const results = await Promise.all(promises);
+        const sorted = results.filter(r => r && r.priceChangePercent !== undefined)
+                              .sort((a,b) => Number(a.priceChangePercent) - Number(b.priceChangePercent));
+        const top = sorted[0];
+        if (!top) return "não encontrei oportunidades agora.";
+        return `${top.symbol} com variação ${Number(top.priceChangePercent).toFixed(2)}%`;
+    } catch (e) {
+        console.error(e);
+        return "erro ao calcular melhor venda.";
+    }
+}
+
+// ===================== BOOK PANEL (simples) =====================
 function analyzeBookNow() {
     document.getElementById('status').innerText = 'Analisando...';
-    setTimeout(() => {
+    // Simulação de análise rápida (substitua por lógica real se tiver)
+    setTimeout(()=>{
         document.getElementById('status').innerText = 'Análise completa';
-    }, 2000);
+        showToast("Análise do book finalizada.", 2500);
+    }, 1600);
 }
 
-// Função de atualização simplificada
-async function updateMainTable() {
-    document.getElementById('mainStatus').innerText = 'Atualizando...';
-    setTimeout(() => {
-        document.getElementById('mainStatus').innerText = 'Última atualização: ' + new Date().toLocaleTimeString('pt-BR');
-    }, 1000);
+// ===================== UI e Eventos =====================
+
+function initializeVoiceButton() {
+    const btn = document.getElementById('voiceAssistantBtn');
+    btn.addEventListener('click', (e)=> {
+        e.preventDefault();
+        // toggle manual
+        startStopManual();
+    });
+
+    // longo toque no mobile para pausar/reiniciar rápido (opcional)
+    let pressTimer = null;
+    btn.addEventListener('touchstart', ()=> { pressTimer = Date.now(); });
+    btn.addEventListener('touchend', ()=> { pressTimer = null; });
 }
 
-function updateVoiceStatus(message) {
-    const bot = document.getElementById('voiceAssistantBtn');
-    if (bot) {
-        // Atualizar apenas o texto pequeno
-        const span = bot.querySelector('span');
-        if (span) {
-            span.textContent = message.length > 10 ? message.substring(0,8)+'...' : message;
-        }
+function showTab(name){
+    if(name === 'main'){
+        document.getElementById('mainPanel').style.display='block';
+        document.getElementById('bookPanel').style.display='none';
+        document.getElementById('tabMain').classList.add('active');
+        document.getElementById('tabBook').classList.remove('active');
+    } else {
+        document.getElementById('mainPanel').style.display='none';
+        document.getElementById('bookPanel').style.display='block';
+        document.getElementById('tabBook').classList.add('active');
+        document.getElementById('tabMain').classList.remove('active');
     }
 }
+
+// eventos
+document.getElementById('tabMain').addEventListener('click', ()=> showTab('main'));
+document.getElementById('tabBook').addEventListener('click', ()=> showTab('book'));
+document.getElementById('analyzeNowBtn').addEventListener('click', analyzeBookNow);
+document.getElementById('openBookBtn').addEventListener('click', ()=> showTab('book'));
+
+// ===================== INICIALIZAÇÃO =====================
+
+document.addEventListener('DOMContentLoaded', async function(){
+    initializeVoiceButton();
+    initializeSpeechRecognition();
+
+    // atualiza tabela inicialmente e depois periodicamente
+    await updateMainTable();
+    const refreshSelect = document.getElementById('refreshSelect');
+    let interval = Number(refreshSelect.value) || 30000;
+    refreshTimer = setInterval(updateMainTable, interval);
+    refreshSelect.addEventListener('change', ()=>{
+        clearInterval(refreshTimer);
+        interval = Number(refreshSelect.value) || 30000;
+        refreshTimer = setInterval(updateMainTable, interval);
+    });
+
+    // tentar ativar automaticamente (pode pedir permissão)
+    setTimeout(()=> {
+        tryStartRecognition(false);
+    }, 800);
+
+    updateVoiceHint("Toque no microfone para ativar/pausar a escuta. Se precisar, permita o microfone no navegador.");
+});
 </script>
 </body>
 </html>
