@@ -48,6 +48,18 @@ th{color:var(--accent);text-transform:uppercase;font-size:12px}
   font-size: 28px; cursor: pointer; z-index: 999999;
   display:flex; align-items:center; justify-content:center;
   box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+  transition: all 0.3s ease;
+}
+
+#voiceAssistantBtn.listening {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  animation: pulse 1.5s infinite;
+}
+
+#voiceAssistantBtn.disabled {
+  background: linear-gradient(135deg, #6b7280, #4b5563);
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
 /* toast */
@@ -57,6 +69,8 @@ th{color:var(--accent);text-transform:uppercase;font-size:12px}
   padding: 10px 14px; border-radius: 8px; font-size: 13px;
   border: 1px solid rgba(102,252,241,0.12); z-index: 999998;
   display: none;
+  max-width: 300px;
+  word-wrap: break-word;
 }
 
 /* voice indicator center */
@@ -73,10 +87,36 @@ th{color:var(--accent);text-transform:uppercase;font-size:12px}
   100% { transform: translate(-50%, -50%) scale(1); }
 }
 
+/* Status indicator */
+.status-indicator {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+
+.status-listening { background-color: #ef4444; animation: status-pulse 1.5s infinite; }
+.status-processing { background-color: #f59e0b; }
+.status-speaking { background-color: #10b981; }
+.status-ready { background-color: #3b82f6; }
+.status-error { background-color: #ef4444; }
+
+@keyframes status-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
 @media (max-width: 768px) {
   body { padding: 8px; }
   h1 { font-size: 16px; }
   .header { flex-direction: column; align-items: stretch; }
+  #voiceAssistantBtn {
+    width: 60px;
+    height: 60px;
+    bottom: 15px;
+    right: 15px;
+  }
 }
 </style>
 </head>
@@ -85,7 +125,10 @@ th{color:var(--accent);text-transform:uppercase;font-size:12px}
   <div class="header">
     <div>
       <h1>📈 GUSTAVO ANALITC'S — Top Criptos + Voz</h1>
-      <div class="small" id="voiceHint">Sistema de voz pronto — tentando ativar automaticamente.</div>
+      <div class="small" id="voiceHint">
+        <span class="status-indicator status-ready"></span>
+        Sistema de voz pronto - Toque no microfone para iniciar
+      </div>
     </div>
     <div class="controls">
       <div class="tabbar">
@@ -173,7 +216,8 @@ const monitoredSymbols = ["BTCUSDT","ETHUSDT","SOLUSDT","XRPUSDT","ADAUSDT","DOG
 let rec = null;
 let recognitionSupported = false;
 let isListening = false;
-let autoListen = true; // tenta iniciar automaticamente na carga
+let isSpeaking = false;
+let autoListen = false; // DESLIGADO - agora só manual pelo botão
 let refreshTimer = null;
 
 // ===================== UTILs VISUAIS =====================
@@ -183,13 +227,45 @@ function showToast(text, timeout=3000){
     t.style.display = 'block';
     setTimeout(()=> { t.style.display = 'none'; }, timeout);
 }
+
 function showVoiceIndicator(show){
     const el = document.getElementById('voiceIndicator');
     el.style.display = show ? 'block' : 'none';
 }
-function updateVoiceHint(txt){
+
+function updateVoiceHint(txt, status='ready'){
     const h = document.getElementById('voiceHint');
-    if(h) h.innerText = txt;
+    if(!h) return;
+    
+    const statusMap = {
+        'ready': 'status-ready',
+        'listening': 'status-listening', 
+        'processing': 'status-processing',
+        'speaking': 'status-speaking',
+        'error': 'status-error'
+    };
+    
+    const statusClass = statusMap[status] || 'status-ready';
+    h.innerHTML = `<span class="status-indicator ${statusClass}"></span>${txt}`;
+}
+
+function updateMicButton(state) {
+    const btn = document.getElementById('voiceAssistantBtn');
+    btn.classList.remove('listening', 'disabled');
+    
+    switch(state) {
+        case 'listening':
+            btn.classList.add('listening');
+            btn.title = "Ouvindo... toque para parar";
+            break;
+        case 'disabled':
+            btn.classList.add('disabled');
+            btn.title = "Processando... aguarde";
+            break;
+        case 'ready':
+            btn.title = "Toque para falar";
+            break;
+    }
 }
 
 // ===================== SPEECH RECOGNITION =====================
@@ -197,19 +273,22 @@ function initializeSpeechRecognition() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
         recognitionSupported = false;
-        updateVoiceHint("Reconhecimento de voz não suportado neste navegador.");
+        updateVoiceHint("Reconhecimento de voz não suportado neste navegador.", 'error');
+        updateMicButton('disabled');
         return;
     }
+    
     try {
         rec = new SpeechRecognition();
         rec.lang = "pt-BR";
-        rec.continuous = false; // one-shot per start
+        rec.continuous = false;
         rec.interimResults = false;
         recognitionSupported = true;
 
         rec.onstart = function() {
             isListening = true;
-            updateVoiceStatus("Ouvindo...");
+            updateVoiceHint("Ouvindo... fale agora", 'listening');
+            updateMicButton('listening');
             showVoiceIndicator(true);
             showToast("Ouvindo... fale agora", 2000);
         };
@@ -217,9 +296,12 @@ function initializeSpeechRecognition() {
         rec.onresult = function(event) {
             const pergunta = event.results[0][0].transcript;
             console.log("Detectado:", pergunta);
-            updateVoiceStatus("Processando...");
+            updateVoiceHint("Processando sua pergunta...", 'processing');
+            updateMicButton('disabled');
             showVoiceIndicator(false);
             isListening = false;
+            
+            // Processar comando e só depois reativar o botão
             processarComando(pergunta);
         };
 
@@ -227,67 +309,76 @@ function initializeSpeechRecognition() {
             console.error("Erro no reconhecimento:", event);
             isListening = false;
             showVoiceIndicator(false);
+            updateMicButton('ready');
+            
             if (event.error === 'not-allowed' || event.error === 'permission-denied') {
-                updateVoiceStatus("Microfone bloqueado");
+                updateVoiceHint("Microfone bloqueado - toque para tentar novamente", 'error');
                 showToast("Permissão do microfone negada. Toque no cadeado na barra e permita.", 6000);
                 showPermissionGuide();
             } else if(event.error === 'no-speech') {
-                updateVoiceStatus("Nenhuma fala detectada");
-                showToast("Não ouvi nada. Tentando novamente em 1s...",1500);
-                // tentar novamente automaticamente
-                setTimeout(()=> tryStartRecognition(true), 1000);
+                updateVoiceHint("Nenhuma fala detectada - toque para tentar novamente", 'error');
+                showToast("Não ouvi nada. Toque no microfone para tentar novamente.", 3000);
+                // NÃO reinicia automaticamente
             } else {
-                updateVoiceStatus("Erro: " + event.error);
+                updateVoiceHint("Erro: " + event.error + " - toque para tentar novamente", 'error');
             }
         };
 
         rec.onend = function() {
             isListening = false;
             showVoiceIndicator(false);
-            updateVoiceStatus("Clique para falar");
-            // se autoListen estiver ativo, re-ligar automaticamente (cuidado com loops)
-            if (autoListen) {
-                // delay curto para evitar loop imediato
-                setTimeout(()=> tryStartRecognition(false), 700);
+            
+            // Só atualiza o status se não estiver falando
+            if (!isSpeaking) {
+                updateVoiceHint("Toque no microfone para falar", 'ready');
+                updateMicButton('ready');
             }
         };
 
     } catch (e) {
         console.error("Falha init recognition:", e);
         recognitionSupported = false;
+        updateVoiceHint("Falha ao inicializar reconhecimento de voz", 'error');
     }
 }
 
-function updateVoiceStatus(message){
-    const btn = document.getElementById('voiceAssistantBtn');
-    if (!btn) return;
-    btn.title = message;
-}
+async function tryStartRecognition(){
+    if (!recognitionSupported) {
+        showToast("Voz não suportada aqui.");
+        return;
+    }
+    
+    if (isListening) {
+        // Se já está ouvindo, para a escuta
+        try { 
+            rec.stop(); 
+            isListening = false;
+            updateVoiceHint("Escuta parada - toque para falar", 'ready');
+            updateMicButton('ready');
+            showVoiceIndicator(false);
+        } catch(e){}
+        return;
+    }
+    
+    if (isSpeaking) {
+        showToast("Aguarde a resposta terminar...");
+        return;
+    }
 
-async function tryStartRecognition(userGestureRequired=false){
-    if (!recognitionSupported) return;
-    if (isListening) return;
     try {
-        // Alguns navegadores exigem getUserMedia para liberar reconhecimento
+        // Verificar permissão primeiro
         if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-            // se já temos permissão, start direto; caso contrário, solicitar
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                stream.getTracks().forEach(t=>t.stop());
-                // com permissão, iniciar rec
+                stream.getTracks().forEach(t => t.stop());
                 rec.start();
             } catch (permErr) {
-                // permissão negada ou user gesture required
-                if (!userGestureRequired) {
-                    // tentar iniciar rec sem pedir explicitamente (pode falhar)
-                    try { rec.start(); } catch(e){ showPermissionGuide(); }
-                } else {
-                    showPermissionGuide();
-                }
+                showPermissionGuide();
+                updateVoiceHint("Permissão necessária - toque para tentar", 'error');
             }
         } else {
-            // fallback: tentar rec.start, pode falhar
-            try { rec.start(); } catch(e){ console.warn("Start failed", e); }
+            // Fallback
+            rec.start();
         }
     } catch (e) {
         console.error("Erro ao iniciar reconhecimento:", e);
@@ -296,21 +387,14 @@ async function tryStartRecognition(userGestureRequired=false){
 }
 
 function startStopManual(){
-    if (!recognitionSupported) {
-        showToast("Voz não suportada aqui.");
-        return;
-    }
-    if (isListening) {
-        try { rec.stop(); } catch(e){}
-    } else {
-        tryStartRecognition(true);
-    }
+    tryStartRecognition();
 }
 
 // ===================== PERMISSION GUIDE =====================
 function showPermissionGuide() {
     const existing = document.getElementById('permissionGuide');
     if (existing) return;
+    
     const guideHTML = document.createElement('div');
     guideHTML.id = 'permissionGuide';
     guideHTML.style.cssText = `
@@ -335,43 +419,45 @@ function showPermissionGuide() {
 }
 
 // ===================== COMANDOS E ANÁLISES =====================
-
 async function processarComando(pergunta) {
     pergunta = pergunta.toLowerCase();
     console.log("Processando comando:", pergunta);
 
+    // Desativa o botão enquanto processa
+    updateMicButton('disabled');
+
     // comandos diretos
     if (pergunta.includes("analisar") || pergunta.includes("book")) {
         analyzeBookNow();
-        falarResposta("Senhor Gustavo, iniciando análise do book.");
+        await falarResposta("Senhor Gustavo, iniciando análise do book.");
         return;
     }
 
     if (pergunta.includes("melhor venda") || pergunta.includes("onde vender") || pergunta.includes("short")) {
         const r = await calcularMelhorShort();
-        falarResposta("Senhor Gustavo, " + r);
+        await falarResposta("Senhor Gustavo, " + r);
         return;
     }
 
     if (pergunta.includes("melhor compra") || pergunta.includes("onde comprar") || pergunta.includes("long")) {
         const r = await calcularMelhorCompra();
-        falarResposta("Senhor Gustavo, " + r);
+        await falarResposta("Senhor Gustavo, " + r);
         return;
     }
 
     if (pergunta.includes("atualizar") || pergunta.includes("refresh") || pergunta.includes("atualiza")) {
         await updateMainTable();
-        falarResposta("Atualizando dados de mercado.");
+        await falarResposta("Atualizando dados de mercado.");
         return;
     }
 
     if (pergunta.includes("oi") || pergunta.includes("olá") || pergunta.includes("alô")) {
-        falarResposta("Olá Senhor Gustavo! Comandos disponíveis: melhor compra, melhor venda, analisar book, atualizar dados, ou pergunte por uma moeda como Bitcoin ou Solana.");
+        await falarResposta("Olá Senhor Gustavo! Comandos disponíveis: melhor compra, melhor venda, analisar book, atualizar dados, ou pergunte por uma moeda como Bitcoin ou Solana.");
         return;
     }
 
     if (pergunta.includes("ajuda") || pergunta.includes("comandos")) {
-        falarResposta("Senhor Gustavo, posso analisar o book, indicar melhor compra ou venda, ou analisar moedas específicas. Diga, por exemplo, 'como está o bitcoin' ou 'melhor compra'.");
+        await falarResposta("Senhor Gustavo, posso analisar o book, indicar melhor compra ou venda, ou analisar moedas específicas. Diga, por exemplo, 'como está o bitcoin' ou 'melhor compra'.");
         return;
     }
 
@@ -382,29 +468,59 @@ async function processarComando(pergunta) {
         if (pergunta.includes(m)) { moedaDetectada = m; break; }
     }
     if (moedaDetectada) {
-        analisarMoedaEspecifica(moedaDetectada);
+        await analisarMoedaEspecifica(moedaDetectada);
         return;
     }
 
     // padrão
-    falarResposta("Senhor Gustavo, comando não reconhecido. Diga 'ajuda' para ver comandos.");
+    await falarResposta("Senhor Gustavo, comando não reconhecido. Diga 'ajuda' para ver comandos.");
 }
 
-// fala + notificação visual
-function falarResposta(txt){
-    // fala
-    if (window.speechSynthesis) {
+// fala + notificação visual - AGORA É ASSÍNCRONO
+function falarResposta(txt) {
+    return new Promise((resolve) => {
+        if (!window.speechSynthesis) {
+            showToast(txt, 4500);
+            resolve();
+            return;
+        }
+
+        isSpeaking = true;
+        updateVoiceHint("Falando...", 'speaking');
+        updateMicButton('disabled');
+
         try {
             window.speechSynthesis.cancel();
             const utter = new SpeechSynthesisUtterance(txt);
             utter.lang = "pt-BR";
             utter.rate = 1.0;
             utter.pitch = 1.0;
+
+            utter.onend = function() {
+                isSpeaking = false;
+                updateVoiceHint("Toque no microfone para falar", 'ready');
+                updateMicButton('ready');
+                resolve();
+            };
+
+            utter.onerror = function() {
+                isSpeaking = false;
+                updateVoiceHint("Toque no microfone para falar", 'ready');
+                updateMicButton('ready');
+                resolve();
+            };
+
             window.speechSynthesis.speak(utter);
-        } catch(e){ console.warn("Erro síntese:", e); }
-    }
-    // toast
-    showToast(txt, 4500);
+        } catch(e) {
+            console.warn("Erro síntese:", e);
+            isSpeaking = false;
+            updateVoiceHint("Toque no microfone para falar", 'ready');
+            updateMicButton('ready');
+            resolve();
+        }
+
+        showToast(txt, 4500);
+    });
 }
 
 // analisa moeda específica (usa Binance)
@@ -424,14 +540,20 @@ async function analisarMoedaEspecifica(nome) {
         "arb":"ARBUSDT","arbis":"ARBUSDT"
     };
     const par = map[nome];
-    if (!par) { falarResposta("Senhor Gustavo, ainda não tenho dados para essa moeda."); return; }
+    if (!par) { 
+        await falarResposta("Senhor Gustavo, ainda não tenho dados para essa moeda."); 
+        return; 
+    }
 
-    falarResposta("Senhor Gustavo, analisando " + nome.toUpperCase() + "...");
+    await falarResposta("Senhor Gustavo, analisando " + nome.toUpperCase() + "...");
     try {
         const url = `https://api.binance.com/api/v3/ticker/24hr?symbol=${par}`;
         const r = await fetch(url);
         const d = await r.json();
-        if (!d || !d.lastPrice) { falarResposta("Senhor Gustavo, falha ao obter dados de " + par); return; }
+        if (!d || !d.lastPrice) { 
+            await falarResposta("Senhor Gustavo, falha ao obter dados de " + par); 
+            return; 
+        }
 
         const preco = Number(d.lastPrice).toFixed(4);
         const variacao = Number(d.priceChangePercent).toFixed(2);
@@ -442,26 +564,25 @@ async function analisarMoedaEspecifica(nome) {
         else if (variacao < -0.5) sinal = "tendência de queda";
 
         const texto = `Senhor Gustavo, ${par}: preço $${preco}, var ${variacao}%. Interpretação: ${sinal}.`;
-        falarResposta(texto);
+        await falarResposta(texto);
     } catch (e) {
         console.error(e);
-        falarResposta("Senhor Gustavo, erro ao analisar " + nome);
+        await falarResposta("Senhor Gustavo, erro ao analisar " + nome);
     }
 }
 
 // ===================== FUNÇÕES DE DADOS (Tabela principal) =====================
-
 async function updateMainTable() {
     const body = document.getElementById('mainTableBody');
     body.innerHTML = '';
     document.getElementById('mainStatus').innerText = 'Atualizando...';
 
     try {
-        // buscar todos os símbolos monitorados em paralelo
-        const promises = monitoredSymbols.map(s => fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${s}`).then(r => r.json()));
+        const promises = monitoredSymbols.map(s => 
+            fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${s}`).then(r => r.json())
+        );
         const results = await Promise.all(promises);
 
-        // popular tabela
         results.forEach(item => {
             const tr = document.createElement('tr');
             const price = item.lastPrice ? Number(item.lastPrice) : 0;
@@ -483,12 +604,12 @@ async function updateMainTable() {
     }
 }
 
-// melhor compra = maior var positiva; melhor venda = maior var negativa
 async function calcularMelhorCompra() {
     try {
-        const promises = monitoredSymbols.map(s => fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${s}`).then(r => r.json()));
+        const promises = monitoredSymbols.map(s => 
+            fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${s}`).then(r => r.json())
+        );
         const results = await Promise.all(promises);
-        // filtrar válidos
         const sorted = results.filter(r => r && r.priceChangePercent !== undefined)
                               .sort((a,b) => Number(b.priceChangePercent) - Number(a.priceChangePercent));
         const top = sorted[0];
@@ -502,7 +623,9 @@ async function calcularMelhorCompra() {
 
 async function calcularMelhorShort() {
     try {
-        const promises = monitoredSymbols.map(s => fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${s}`).then(r => r.json()));
+        const promises = monitoredSymbols.map(s => 
+            fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${s}`).then(r => r.json())
+        );
         const results = await Promise.all(promises);
         const sorted = results.filter(r => r && r.priceChangePercent !== undefined)
                               .sort((a,b) => Number(a.priceChangePercent) - Number(b.priceChangePercent));
@@ -518,7 +641,6 @@ async function calcularMelhorShort() {
 // ===================== BOOK PANEL (simples) =====================
 function analyzeBookNow() {
     document.getElementById('status').innerText = 'Analisando...';
-    // Simulação de análise rápida (substitua por lógica real se tiver)
     setTimeout(()=>{
         document.getElementById('status').innerText = 'Análise completa';
         showToast("Análise do book finalizada.", 2500);
@@ -526,19 +648,12 @@ function analyzeBookNow() {
 }
 
 // ===================== UI e Eventos =====================
-
 function initializeVoiceButton() {
     const btn = document.getElementById('voiceAssistantBtn');
     btn.addEventListener('click', (e)=> {
         e.preventDefault();
-        // toggle manual
         startStopManual();
     });
-
-    // longo toque no mobile para pausar/reiniciar rápido (opcional)
-    let pressTimer = null;
-    btn.addEventListener('touchstart', ()=> { pressTimer = Date.now(); });
-    btn.addEventListener('touchend', ()=> { pressTimer = null; });
 }
 
 function showTab(name){
@@ -562,7 +677,6 @@ document.getElementById('analyzeNowBtn').addEventListener('click', analyzeBookNo
 document.getElementById('openBookBtn').addEventListener('click', ()=> showTab('book'));
 
 // ===================== INICIALIZAÇÃO =====================
-
 document.addEventListener('DOMContentLoaded', async function(){
     initializeVoiceButton();
     initializeSpeechRecognition();
@@ -578,12 +692,7 @@ document.addEventListener('DOMContentLoaded', async function(){
         refreshTimer = setInterval(updateMainTable, interval);
     });
 
-    // tentar ativar automaticamente (pode pedir permissão)
-    setTimeout(()=> {
-        tryStartRecognition(false);
-    }, 800);
-
-    updateVoiceHint("Toque no microfone para ativar/pausar a escuta. Se precisar, permita o microfone no navegador.");
+    updateVoiceHint("Toque no microfone para ativar/pausar a escuta", 'ready');
 });
 </script>
 </body>
