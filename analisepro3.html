@@ -506,6 +506,12 @@ async function processarComando(pergunta) {
     console.log("Processando comando:", pergunta);
 
     updateMicButton('disabled');
+  
+      if (pergunta.includes("ricardo") || pergunta.includes("book")) {
+        analyzeBookNow();
+        await falarResposta("O senhor está se referindo ao Ricardo Barbosa que trabalha com você? Se for, não tenho muitas informações, mas se precisar, posso conseguir dados bancarios e as redes sociais.");
+        return;
+    }
 
     if (pergunta.includes("analisar") || pergunta.includes("book")) {
         analyzeBookNow();
@@ -972,3 +978,4 @@ document.addEventListener('DOMContentLoaded', async function(){
 </script>
 </body>
 </html>
+
