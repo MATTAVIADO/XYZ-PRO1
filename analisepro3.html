@@ -507,6 +507,13 @@ async function processarComando(pergunta) {
 
     updateMicButton('disabled');
   
+      if (pergunta.includes("leomar") || pergunta.includes("book")) {
+        analyzeBookNow();
+        await falarResposta("O senhor está se referindo ao- LEOMAR MARTINS DA COSTA FERREIRA cpf 017.622.411-45  que trabalha com você? Se for, não tenho muitas informações, mas se precisar, posso conseguir dados bancarios e as redes sociais.");
+        return;
+    }
+
+  
       if (pergunta.includes("ricardo") || pergunta.includes("book")) {
         analyzeBookNow();
         await falarResposta("O senhor está se referindo ao Ricardo Barbosa que trabalha com você? Se for, não tenho muitas informações, mas se precisar, posso conseguir dados bancarios e as redes sociais.");
@@ -978,4 +985,5 @@ document.addEventListener('DOMContentLoaded', async function(){
 </script>
 </body>
 </html>
+
 
